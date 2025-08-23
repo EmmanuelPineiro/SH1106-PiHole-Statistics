@@ -1,0 +1,37 @@
+[Unit]
+Description=Pi-hole Stats Display
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{SERVICE_USER}}
+Group={{SERVICE_USER}}
+WorkingDirectory={{WORKING_DIR}}
+ExecStart=/usr/bin/python3 main.py
+Environment=PIHOLE_APP_PASSWORD={{PIHOLE_PASSWORD}}
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths={{WORKING_DIR}}
+CapabilityBoundingSet=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RemoveIPC=yes
+
+# Restart settings
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+[Install]
+WantedBy=multi-user.target
