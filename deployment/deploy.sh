@@ -75,7 +75,6 @@ install_system_dependencies() {
         libfreetype6-dev \
         libjpeg-dev \
         libopenjp2-7 \
-        libtiff5
     
     log "System dependencies installed"
 }
@@ -108,6 +107,17 @@ create_user_and_directories() {
     if ! id "$USER" &>/dev/null; then
         useradd -r -s /bin/false "$USER"
         info "Created user: $USER"
+    fi
+    
+    # Add user to i2c group for hardware access
+    if getent group i2c >/dev/null 2>&1; then
+        usermod -a -G i2c "$USER" 2>/dev/null || true
+        info "Added user $USER to i2c group"
+    else
+        # Create i2c group if it doesn't exist
+        groupadd i2c 2>/dev/null || true
+        usermod -a -G i2c "$USER" 2>/dev/null || true
+        info "Created i2c group and added user $USER"
     fi
     
     # Create installation directory
@@ -225,11 +235,19 @@ test_i2c_connection() {
 start_service() {
     log "Starting service..."
     
+    # First, let's test the application manually to see if there are any immediate errors
+    info "Testing application startup manually..."
+    if sudo -u "$USER" "$INSTALL_DIR/venv/bin/python3" "$INSTALL_DIR/run.py" --test 2>&1 | head -20; then
+        info "Manual test completed - check output above for any errors"
+    else
+        warning "Manual test failed - this may indicate the issue"
+    fi
+    
     # Start the service
     systemctl start "$SERVICE_NAME"
     
     # Wait a moment for service to start
-    sleep 3
+    sleep 5
     
     # Check service status
     if systemctl is-active --quiet "$SERVICE_NAME"; then
@@ -237,7 +255,46 @@ start_service() {
         info "Service status:"
         systemctl status "$SERVICE_NAME" --no-pager -l
     else
-        error "Service failed to start. Check logs with: journalctl -u $SERVICE_NAME -f"
+        warning "Service failed to start. Gathering diagnostic information..."
+        
+        # Show recent logs with more detail
+        info "Recent service logs:"
+        journalctl -u "$SERVICE_NAME" -n 20 --no-pager || true
+        
+        # Test Python environment
+        info "Testing Python environment:"
+        sudo -u "$USER" "$INSTALL_DIR/venv/bin/python3" -c "
+import sys
+print(f'Python version: {sys.version}')
+print(f'Python path: {sys.path}')
+try:
+    import luma.oled
+    print('✓ luma.oled imported successfully')
+except ImportError as e:
+    print(f'✗ luma.oled import failed: {e}')
+try:
+    import qrcode
+    print('✓ qrcode imported successfully')
+except ImportError as e:
+    print(f'✗ qrcode import failed: {e}')
+try:
+    import requests
+    print('✓ requests imported successfully')
+except ImportError as e:
+    print(f'✗ requests import failed: {e}')
+" 2>&1 || true
+        
+        # Check file permissions
+        info "Checking file permissions:"
+        ls -la "$INSTALL_DIR/" | head -10
+        ls -la "$INSTALL_DIR/src/pihole_stats/" | head -5
+        
+        # Check I2C permissions
+        info "Checking I2C permissions:"
+        ls -la /dev/i2c-* 2>/dev/null || echo "No I2C devices found"
+        groups "$USER" || true
+        
+        error "Service failed to start. Check the diagnostic information above."
     fi
 }
 
