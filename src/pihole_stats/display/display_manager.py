@@ -3,7 +3,7 @@ import html
 import re
 from luma.core.render import canvas
 from PIL import Image
-from utils.system_info import SystemInfo
+from ..utils.system_info import SystemInfo
 
 class DisplayManager:
     """Manage display screens with security enhancements"""
