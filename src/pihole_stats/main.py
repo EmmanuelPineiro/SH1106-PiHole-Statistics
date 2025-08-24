@@ -6,14 +6,6 @@ import logging
 import time
 from time import sleep
 
-#!/usr/bin/python3
-import os
-import sys
-import signal
-import logging
-import time
-from time import sleep
-
 # Set restrictive umask for file creation
 os.umask(0o077)
 
