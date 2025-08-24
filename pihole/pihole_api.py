@@ -9,6 +9,7 @@ from urllib3.util.retry import Retry
 class PiholeAPI:
     """Handle Pi-hole API interactions with security enhancements"""
     def __init__(self, config):
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.config = config
         self.base_url = config.get('pihole.base_url')
         self.timeout = min(config.get('pihole.timeout', 10), 30)  # Cap timeout at 30s
@@ -32,21 +33,24 @@ class PiholeAPI:
         
         # Disable SSL warnings for local connections but log them
         if 'localhost' in self.base_url or '127.0.0.1' in self.base_url:
-            import urllib3
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-            logging.info("SSL verification disabled for localhost connection")
+            try:
+                import urllib3
+                urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+                self.logger.info("SSL verification disabled for localhost connection")
+            except ImportError:
+                self.logger.debug("urllib3 not available for SSL warning suppression")
     
     def authenticate(self):
         # Rate limiting for authentication attempts
         current_time = time.time()
         if current_time - self.last_auth_attempt < 5:  # 5 second cooldown
-            logging.warning("Authentication rate limited")
+            self.logger.warning("Authentication rate limited")
             return False
         
         # Check for too many failures
         if self.auth_failures >= self.max_auth_failures:
             if current_time - self.last_auth_attempt < 300:  # 5 minute lockout
-                logging.error("Too many authentication failures, locked out")
+                self.logger.error("Too many authentication failures, locked out")
                 return False
             else:
                 self.auth_failures = 0  # Reset after lockout period
@@ -55,12 +59,12 @@ class PiholeAPI:
         
         password = os.getenv('PIHOLE_APP_PASSWORD')
         if not password:
-            logging.error("PIHOLE_APP_PASSWORD environment variable not set")
+            self.logger.error("PIHOLE_APP_PASSWORD environment variable not set")
             return False
         
         # Validate password format (Pi-hole app passwords are base64-like)
         if len(password) < 32 or not password.replace('=', '').replace('+', '').replace('/', '').isalnum():
-            logging.error("Invalid password format")
+            self.logger.error("Invalid password format")
             self.auth_failures += 1
             return False
         
@@ -84,25 +88,25 @@ class PiholeAPI:
                     self.session_data['sid'] = data["session"]["sid"]
                     self.session_data['csrf'] = data["session"]["csrf"]
                     self.auth_failures = 0  # Reset on success
-                    logging.info("Authentication successful")
+                    self.logger.info("Authentication successful")
                     return True
                 else:
-                    logging.error("Invalid authentication response structure")
+                    self.logger.error("Invalid authentication response structure")
             
-            logging.error(f"Authentication failed: {response.status_code}")
+            self.logger.error(f"Authentication failed: {response.status_code}")
             self.auth_failures += 1
             return False
             
         except requests.exceptions.Timeout:
-            logging.error("Authentication timeout")
+            self.logger.error("Authentication timeout")
             self.auth_failures += 1
             return False
         except requests.exceptions.ConnectionError:
-            logging.error("Connection error during authentication")
+            self.logger.error("Connection error during authentication")
             self.auth_failures += 1
             return False
         except Exception as e:
-            logging.error(f"Authentication error: {e}")
+            self.logger.error(f"Authentication error: {e}")
             self.auth_failures += 1
             return False
     
@@ -119,7 +123,7 @@ class PiholeAPI:
             
             # Validate session tokens
             if not self._validate_session_tokens():
-                logging.warning("Invalid session tokens detected")
+                self.logger.warning("Invalid session tokens detected")
                 self.session_data = {'sid': None, 'csrf': None}
                 return None
             
@@ -128,6 +132,7 @@ class PiholeAPI:
             # Rate limiting
             self._rate_limit()
             
+            self.logger.debug(f"Making API request to {url}")
             response = self.session.get(
                 url, 
                 headers=headers, 
@@ -137,25 +142,27 @@ class PiholeAPI:
             
             if response.status_code == 200:
                 data = response.json()
+                self.logger.debug("API response received successfully")
                 # Validate response data
                 if self._validate_stats_data(data):
                     return data
                 else:
-                    logging.warning("Invalid stats data received")
+                    self.logger.warning("Invalid stats data received")
+                    self.logger.debug(f"Received data: {data}")
                     return None
             elif response.status_code == 401:
                 # Session expired
-                logging.info("Session expired, need to re-authenticate")
+                self.logger.info("Session expired, need to re-authenticate")
                 self.session_data = {'sid': None, 'csrf': None}
             else:
-                logging.error(f"API request failed: {response.status_code}")
+                self.logger.error(f"API request failed: {response.status_code}")
                 
         except requests.exceptions.Timeout:
-            logging.error("API request timeout")
+            self.logger.error("API request timeout")
         except requests.exceptions.ConnectionError:
-            logging.error("Connection error during API request")
+            self.logger.error("Connection error during API request")
         except Exception as e:
-            logging.error(f"Error getting stats: {e}")
+            self.logger.error(f"Error getting stats: {e}")
         
         return None
     
@@ -184,30 +191,68 @@ class PiholeAPI:
     def _validate_stats_data(self, data):
         """Validate Pi-hole stats data structure"""
         if not isinstance(data, dict):
+            self.logger.warning("Stats data is not a dictionary")
             return False
         
-        # Check for expected fields and reasonable values
-        expected_fields = ['ads_percentage_today', 'ads_blocked_today', 'dns_queries_today']
-        for field in expected_fields:
-            if field not in data:
+        # Check for expected top-level fields in the new API format
+        required_sections = ['queries', 'clients', 'gravity']
+        for section in required_sections:
+            if section not in data:
+                self.logger.warning(f"Missing required section: {section}")
+                return False
+        
+        # Validate queries section
+        queries = data.get('queries', {})
+        if not isinstance(queries, dict):
+            self.logger.warning("Queries section is not a dictionary")
+            return False
+        
+        # Check for essential query fields
+        query_fields = ['total', 'blocked', 'percent_blocked']
+        for field in query_fields:
+            if field not in queries:
+                self.logger.warning(f"Missing query field: {field}")
                 return False
             
-            value = data[field]
-            if field == 'ads_percentage_today':
+            value = queries[field]
+            if field == 'percent_blocked':
                 try:
                     float_val = float(value)
                     if float_val < 0 or float_val > 100:
-                        logging.warning(f"Suspicious percentage value: {float_val}")
+                        self.logger.warning(f"Suspicious percentage value: {float_val}")
                         return False
                 except (ValueError, TypeError):
+                    self.logger.warning(f"Invalid percentage format: {value}")
                     return False
-            elif field in ['ads_blocked_today', 'dns_queries_today']:
+            elif field in ['total', 'blocked']:
                 try:
                     int_val = int(value)
-                    if int_val < 0 or int_val > 10000000:  # Reasonable upper limit
-                        logging.warning(f"Suspicious count value: {int_val}")
+                    if int_val < 0 or int_val > 100000000:  # Reasonable upper limit
+                        self.logger.warning(f"Suspicious count value: {int_val}")
                         return False
                 except (ValueError, TypeError):
+                    self.logger.warning(f"Invalid count format: {value}")
                     return False
         
+        # Validate clients section
+        clients = data.get('clients', {})
+        if not isinstance(clients, dict):
+            self.logger.warning("Clients section is not a dictionary")
+            return False
+        
+        if 'total' not in clients or 'active' not in clients:
+            self.logger.warning("Missing client count fields")
+            return False
+        
+        # Validate gravity section
+        gravity = data.get('gravity', {})
+        if not isinstance(gravity, dict):
+            self.logger.warning("Gravity section is not a dictionary")
+            return False
+        
+        if 'domains_being_blocked' not in gravity:
+            self.logger.warning("Missing gravity domains count")
+            return False
+        
+        self.logger.debug("Stats data validation passed")
         return True
