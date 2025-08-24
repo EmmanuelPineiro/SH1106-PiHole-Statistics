@@ -83,6 +83,9 @@ class DisplayManager:
     def show_network_stats_screen(self, pihole_data):
         IP = self.system_info.get_ip_address()
         
+        # Debug IP address retrieval
+        logging.debug(f"Retrieved IP address: '{IP}' (length: {len(IP) if IP else 0})")
+        
         with canvas(self.device) as draw:
             draw.rectangle(self.device.bounding_box, outline="black", fill="black")
             
@@ -90,7 +93,10 @@ class DisplayManager:
             ads_blocked = pihole_data.get("queries", {}).get("blocked", "0")
             dns_queries = pihole_data.get("queries", {}).get("total", "0")
             
-            draw.text((self.x, self.top), IP, font=self.fonts.get('normal'), fill="white")
+            # Sanitize and validate IP address display
+            ip_display = self._sanitize_text(IP if IP else "No IP", 15)
+            
+            draw.text((self.x, self.top), ip_display, font=self.fonts.get('normal'), fill="white")
             draw.text((self.x, self.top+20), f"BLK: {ads_percentage}%", font=self.fonts.get('medium'), fill="white")
             draw.text((self.x, self.top+34), f"ADS: {ads_blocked}", font=self.fonts.get('medium'), fill="white")
             draw.text((self.x, self.top+48), f"QRY: {dns_queries}", font=self.fonts.get('medium'), fill="white")

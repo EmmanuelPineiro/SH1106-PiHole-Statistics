@@ -62,9 +62,12 @@ class PiholeAPI:
             self.logger.error("No valid password found - check PIHOLE_APP_PASSWORD environment variable or /opt/pihole-stats/.app_password file")
             return False
         
+        # Debug: Log password details (safely)
+        self.logger.debug(f"Password received: length={len(password)}, starts_with={password[:10] if password else 'None'}...")
+        
         # Validate password format (Pi-hole app passwords are base64-like)
         if len(password) < 32 or not password.replace('=', '').replace('+', '').replace('/', '').isalnum():
-            self.logger.error("Invalid password format")
+            self.logger.error(f"Invalid password format: length={len(password)}, format_check_failed")
             self.auth_failures += 1
             return False
         
@@ -262,7 +265,7 @@ class PiholeAPI:
         # First try environment variable
         password = os.getenv('PIHOLE_APP_PASSWORD')
         if password:
-            self.logger.debug("Using password from environment variable")
+            self.logger.debug(f"Using password from environment variable: length={len(password)}")
             return password
         
         # Fallback to password file
@@ -278,9 +281,12 @@ class PiholeAPI:
                 with open(password_file, 'r') as f:
                     password = f.read().strip()
                     if password:
-                        self.logger.debug("Using password from password file")
+                        self.logger.debug(f"Using password from password file: length={len(password)}")
                         return password
+            else:
+                self.logger.debug("Password file does not exist")
         except Exception as e:
             self.logger.error(f"Error reading password file: {e}")
         
+        self.logger.error("No password found from either environment variable or file")
         return None

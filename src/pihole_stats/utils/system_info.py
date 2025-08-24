@@ -8,10 +8,28 @@ class SystemInfo:
     @staticmethod
     def get_ip_address():
         try:
-            cmd = "hostname -I | cut -d' ' -f1"
-            return subprocess.check_output(cmd, shell=True).decode('UTF-8').strip()
-        except Exception:
-            return "Unknown"
+            # Try multiple methods to get IP address
+            methods = [
+                "hostname -I | cut -d' ' -f1",
+                "ip route get 1.1.1.1 | head -1 | awk '{print $7}'",
+                "ip addr show | grep 'inet ' | grep -v '127.0.0.1' | head -1 | awk '{print $2}' | cut -d'/' -f1"
+            ]
+            
+            for cmd in methods:
+                try:
+                    result = subprocess.check_output(cmd, shell=True, timeout=5).decode('UTF-8').strip()
+                    if result and result != '':
+                        logging.debug(f"Got IP address using '{cmd}': {result}")
+                        return result
+                except Exception as e:
+                    logging.debug(f"IP method '{cmd}' failed: {e}")
+                    continue
+            
+            logging.warning("All IP address methods failed")
+            return "No IP Found"
+        except Exception as e:
+            logging.error(f"Error getting IP address: {e}")
+            return "IP Error"
     
     @staticmethod
     def get_hardware_info():
