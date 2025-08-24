@@ -42,9 +42,14 @@ class DisplayManager:
         if not isinstance(pihole_data, dict):
             return False
         
-        required_fields = ['ads_percentage_today', 'ads_blocked_today']
-        for field in required_fields:
-            if field not in pihole_data:
+        # Check for new API structure
+        if 'queries' not in pihole_data:
+            return False
+        
+        queries = pihole_data.get('queries', {})
+        required_query_fields = ['percent_blocked', 'blocked']
+        for field in required_query_fields:
+            if field not in queries:
                 return False
         
         return True
@@ -68,8 +73,8 @@ class DisplayManager:
         with canvas(self.device) as draw:
             draw.rectangle(self.device.bounding_box, outline="black", fill="black")
             
-            ads_percentage = self._sanitize_text(pihole_data.get("ads_percentage_today", "0"), 10)
-            ads_blocked = self._sanitize_text(pihole_data.get("ads_blocked_today", "0"), 15)
+            ads_percentage = self._sanitize_text(pihole_data.get("queries", {}).get("percent_blocked", "0"), 10)
+            ads_blocked = self._sanitize_text(pihole_data.get("queries", {}).get("blocked", "0"), 15)
             
             draw.text((self.x, self.top-2), f"{ads_percentage}%", font=self.fonts.get('large'), fill="white")
             draw.text((self.x, self.top+34), "ADs BLOCKED:", font=self.fonts.get('normal'), fill="white")
@@ -81,9 +86,9 @@ class DisplayManager:
         with canvas(self.device) as draw:
             draw.rectangle(self.device.bounding_box, outline="black", fill="black")
             
-            ads_percentage = pihole_data.get("ads_percentage_today", "0")
-            ads_blocked = pihole_data.get("ads_blocked_today", "0")
-            dns_queries = pihole_data.get("dns_queries_today", "0")
+            ads_percentage = pihole_data.get("queries", {}).get("percent_blocked", "0")
+            ads_blocked = pihole_data.get("queries", {}).get("blocked", "0")
+            dns_queries = pihole_data.get("queries", {}).get("total", "0")
             
             draw.text((self.x, self.top), IP, font=self.fonts.get('normal'), fill="white")
             draw.text((self.x, self.top+20), f"BLK: {ads_percentage}%", font=self.fonts.get('medium'), fill="white")
