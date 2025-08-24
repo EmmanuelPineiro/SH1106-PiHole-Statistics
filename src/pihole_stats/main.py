@@ -24,25 +24,31 @@ from .display.display_manager import DisplayManager
 from .utils.security import SecurityUtils
 
 def setup_logging(config):
-    log_file = config.get('files.log_file', 'stats.log')
-    
-    # Validate log file path
-    if not SecurityUtils.is_safe_path(log_file):
-        print(f"Unsafe log file path: {log_file}")
-        return False
-    
+    # For systemd services, log to stdout/stderr instead of file
+    # This allows logs to be captured by journalctl
     try:
         logging.basicConfig(
-            filename=log_file,
-            filemode='a',
-            format='[%(asctime)s,%(msecs)03d][%(name)s][%(levelname)s] - %(message)s',
+            level=logging.DEBUG,
+            format='[%(asctime)s][%(name)s][%(levelname)s] - %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S',
-            level=logging.DEBUG
+            handlers=[
+                logging.StreamHandler()  # Log to stdout for systemd
+            ]
         )
         
-        # Set secure permissions on log file
-        if os.path.exists(log_file):
-            os.chmod(log_file, 0o600)
+        # Also add file logging if specified in config (optional)
+        log_file = config.get('files.log_file')
+        if log_file and SecurityUtils.is_safe_path(log_file):
+            file_handler = logging.FileHandler(log_file, mode='a')
+            file_handler.setFormatter(logging.Formatter(
+                '[%(asctime)s,%(msecs)03d][%(name)s][%(levelname)s] - %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            ))
+            logging.getLogger().addHandler(file_handler)
+            
+            # Set secure permissions on log file
+            if os.path.exists(log_file):
+                os.chmod(log_file, 0o600)
         
         return True
     except Exception as e:

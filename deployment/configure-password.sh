@@ -23,6 +23,8 @@ if [ -z "$PIHOLE_APP_PASSWORD" ]; then
 fi
 
 echo "✅ Found PIHOLE_APP_PASSWORD in environment"
+echo "🔍 Password length: ${#PIHOLE_APP_PASSWORD} characters"
+echo "🔍 Password starts with: ${PIHOLE_APP_PASSWORD:0:10}..."
 
 # Check if service exists
 if ! sudo systemctl is-enabled pihole-stats.service >/dev/null 2>&1; then
