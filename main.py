@@ -146,7 +146,6 @@ def main():
             
             # Get Pi-hole data
             pihole_data = pihole_api.get_stats()
-            print("pihole_data:", pihole_data)
             if not pihole_data:
                 display.show_error_screen("API Error", "Retrying...")
                 sleep(5)

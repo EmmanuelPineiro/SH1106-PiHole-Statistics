@@ -123,16 +123,35 @@ class DisplayManager:
             logo_image = Image.open(logo_path)
             logo_image = logo_image.convert('1')
             
-            # Validate image dimensions
-            if logo_image.size[0] > 512 or logo_image.size[1] > 512:
-                logging.warning("Logo image too large, resizing")
-                logo_image = logo_image.resize((128, 64), Image.Resampling.LANCZOS)
-            elif logo_image.size != (self.width, self.height):
-                logo_image = logo_image.resize((self.width, self.height), Image.Resampling.LANCZOS)
+            # Scale image to fit screen height while maintaining aspect ratio
+            original_width, original_height = logo_image.size
             
-            with canvas(self.device) as draw:
-                draw.rectangle(self.device.bounding_box, outline="black", fill="black")
-                draw.bitmap((0, 0), logo_image, fill="white")
+            # Calculate new dimensions to fit screen height
+            if original_height > 0:  # Avoid division by zero
+                aspect_ratio = original_width / original_height
+                new_height = self.height
+                new_width = int(new_height * aspect_ratio)
+                
+                # If new width exceeds screen width, scale to fit width instead
+                if new_width > self.width:
+                    new_width = self.width
+                    new_height = int(new_width / aspect_ratio)
+                
+                # Resize image maintaining aspect ratio
+                if (new_width, new_height) != (original_width, original_height):
+                    logo_image = logo_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    logging.debug(f"Logo resized from {original_width}x{original_height} to {new_width}x{new_height}")
+                
+                # Center the image on screen
+                x_offset = (self.width - new_width) // 2
+                y_offset = (self.height - new_height) // 2
+                
+                with canvas(self.device) as draw:
+                    draw.rectangle(self.device.bounding_box, outline="black", fill="black")
+                    draw.bitmap((x_offset, y_offset), logo_image, fill="white")
+            else:
+                # Fallback if image has no height
+                self._show_fallback_logo()
                 
         except FileNotFoundError:
             logging.info("Logo file not found, using fallback")
