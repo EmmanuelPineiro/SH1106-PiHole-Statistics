@@ -39,6 +39,16 @@ Completely removes the Pi-hole statistics display from the system.
 sudo ./uninstall.sh
 ```
 
+### `configure-password.sh` - Service Password Fix
+
+Simple script to transfer your Pi-hole password from your environment to the systemd service.
+
+**Usage:**
+```bash
+# After setting PIHOLE_APP_PASSWORD in your .bashrc
+./configure-password.sh
+```
+
 ## Installation Process
 
 The deployment script performs these steps:
@@ -78,6 +88,23 @@ The deployment script performs these steps:
 ## Post-Installation
 
 After successful deployment:
+
+### **Setup Pi-hole Password**
+
+1. **Add your Pi-hole password to your environment:**
+   ```bash
+   # Get your Pi-hole API token from: Pi-hole Admin > Settings > API
+   echo 'export PIHOLE_APP_PASSWORD="your_pihole_password_here"' >> ~/.bashrc
+   source ~/.bashrc
+   ```
+
+2. **Fix the service configuration:**
+   ```bash
+   cd /path/to/SH1106-PiHole-Statistics/deployment
+   ./configure-password.sh
+   ```
+
+That's it! The service should now be running properly.
 
 ### Configuration
 Edit the configuration file:

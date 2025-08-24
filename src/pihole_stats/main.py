@@ -56,10 +56,24 @@ def signal_handler(sig, frame):
 
 def validate_environment():
     """Validate the runtime environment for security"""
-    # Check for required environment variables
-    if not os.getenv('PIHOLE_APP_PASSWORD'):
-        logging.error("PIHOLE_APP_PASSWORD not set - this is required for security")
+    # Check for required environment variables or password file
+    env_password = os.getenv('PIHOLE_APP_PASSWORD')
+    password_file = '/opt/pihole-stats/.app_password'
+    
+    if not env_password and not os.path.exists(password_file):
+        logging.error("No Pi-hole password found - set PIHOLE_APP_PASSWORD environment variable or create /opt/pihole-stats/.app_password file")
         return False
+    
+    # If password file exists, check its permissions
+    if os.path.exists(password_file):
+        try:
+            stat_info = os.stat(password_file)
+            if stat_info.st_mode & 0o077:  # Check if readable by others
+                logging.error(f"Password file {password_file} has insecure permissions (should be 600)")
+                return False
+        except Exception as e:
+            logging.error(f"Error checking password file permissions: {e}")
+            return False
     
     # Check if running as root (not recommended)
     if os.geteuid() == 0:

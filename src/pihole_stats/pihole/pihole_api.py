@@ -57,9 +57,9 @@ class PiholeAPI:
         
         self.last_auth_attempt = current_time
         
-        password = os.getenv('PIHOLE_APP_PASSWORD')
+        password = self._get_password()
         if not password:
-            self.logger.error("PIHOLE_APP_PASSWORD environment variable not set")
+            self.logger.error("No valid password found - check PIHOLE_APP_PASSWORD environment variable or /opt/pihole-stats/.app_password file")
             return False
         
         # Validate password format (Pi-hole app passwords are base64-like)
@@ -256,3 +256,31 @@ class PiholeAPI:
         
         self.logger.debug("Stats data validation passed")
         return True
+
+    def _get_password(self):
+        """Get Pi-hole password from environment variable or password file"""
+        # First try environment variable
+        password = os.getenv('PIHOLE_APP_PASSWORD')
+        if password:
+            self.logger.debug("Using password from environment variable")
+            return password
+        
+        # Fallback to password file
+        password_file = '/opt/pihole-stats/.app_password'
+        try:
+            if os.path.exists(password_file):
+                # Validate file permissions for security
+                stat_info = os.stat(password_file)
+                if stat_info.st_mode & 0o077:  # Check if readable by others
+                    self.logger.warning(f"Password file {password_file} has insecure permissions")
+                    return None
+                
+                with open(password_file, 'r') as f:
+                    password = f.read().strip()
+                    if password:
+                        self.logger.debug("Using password from password file")
+                        return password
+        except Exception as e:
+            self.logger.error(f"Error reading password file: {e}")
+        
+        return None
