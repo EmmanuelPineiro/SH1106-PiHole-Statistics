@@ -3,9 +3,16 @@
     "base_url": "https://localhost/api/",
     "timeout": 10
   },
+  "qr_code": {
+    "enabled": true,
+    "url": "",
+    "box_size": 2,
+    "border": 2,
+    "error_correction": "M"
+  },
   "display": {
     "screen_display_time": 10,
-    "logo_display_time": 5,
+    "qr_code_display_time": 5,
     "width": 128,
     "height": 64,
     "i2c_port": 1,
@@ -42,9 +49,9 @@
       "requires_pihole_data": false
     },
     {
-      "name": "logo",
-      "function": "show_logo_screen",
-      "duration": "logo_display_time", 
+      "name": "qr_code",
+      "function": "show_qr_code_screen",
+      "duration": "qr_code_display_time", 
       "requires_pihole_data": false
     }
   ],

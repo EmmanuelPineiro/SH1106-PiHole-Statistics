@@ -110,55 +110,78 @@ class DisplayManager:
             else:
                 draw.text((self.x, self.top), "Hardware Error", font=self.fonts.get('medium'), fill="white")
     
-    def show_logo_screen(self, pihole_data=None):
-        logo_path = self.config.get('files.logo_image', './logo.png')
-        
-        # Validate file path for security
-        if not self._is_safe_image_path(logo_path):
-            logging.error(f"Unsafe logo path: {logo_path}")
-            self._show_fallback_logo()
-            return
-        
+    def show_qr_code_screen(self, pihole_data=None):
+        """Display QR code for configured URL (typically Pi-hole login)"""
         try:
-            logo_image = Image.open(logo_path)
-            logo_image = logo_image.convert('1')
+            # Get QR code configuration
+            qr_enabled = self.config.get('qr_code.enabled', True)
+            if not qr_enabled:
+                self._show_fallback_logo_with_text("QR Disabled")
+                return
             
-            # Scale image to fit screen height while maintaining aspect ratio
-            original_width, original_height = logo_image.size
+            # Get URL from config with fallback to Pi-hole admin URL
+            qr_url = self.config.get('qr_code.url')
+            if not qr_url:
+                # Fallback: derive from Pi-hole base URL
+                pihole_url = self.config.get('pihole.base_url', 'http://localhost')
+                
+                # Remove /admin/api suffix if present and add /admin for login
+                if pihole_url.endswith('/admin/api'):
+                    qr_url = pihole_url[:-10] + '/admin'  # Remove '/admin/api', add '/admin'
+                elif pihole_url.endswith('/admin/api/'):
+                    qr_url = pihole_url[:-11] + '/admin'  # Remove '/admin/api/', add '/admin'
+                else:
+                    qr_url = pihole_url.rstrip('/') + '/admin'
             
-            # Calculate new dimensions to fit screen height
-            if original_height > 0:  # Avoid division by zero
-                aspect_ratio = original_width / original_height
-                new_height = self.height
-                new_width = int(new_height * aspect_ratio)
+            # Get QR code display settings
+            qr_box_size = self.config.get('qr_code.box_size', 2)
+            qr_border = self.config.get('qr_code.border', 2)
+            qr_error_correction = self.config.get('qr_code.error_correction', 'M')
+            
+            # Map error correction setting
+            error_correction_map = {
+                'L': 'ERROR_CORRECT_L',    # ~7% correction
+                'M': 'ERROR_CORRECT_M',    # ~15% correction
+                'Q': 'ERROR_CORRECT_Q',    # ~25% correction
+                'H': 'ERROR_CORRECT_H'     # ~30% correction
+            }
+            error_correction = getattr(
+                __import__('qrcode.constants', fromlist=[error_correction_map.get(qr_error_correction, 'ERROR_CORRECT_M')]),
+                error_correction_map.get(qr_error_correction, 'ERROR_CORRECT_M')
+            )
+            
+            # Generate QR code
+            import qrcode
+            qr = qrcode.QRCode(
+                version=1,  # Small QR code (21x21 modules)
+                error_correction=error_correction,
+                box_size=qr_box_size,
+                border=qr_border,
+            )
+            qr.add_data(qr_url)
+            qr.make(fit=True)
+            
+            # Convert to PIL image
+            qr_image = qr.make_image(fill_color="white", back_color="black")
+            
+            # Convert to 1-bit for OLED display
+            qr_image = qr_image.convert('1')
+            
+            # Center the QR code on screen
+            qr_width, qr_height = qr_image.size
+            x_offset = (self.width - qr_width) // 2
+            y_offset = (self.height - qr_height) // 2
+            
+            with canvas(self.device) as draw:
+                draw.rectangle(self.device.bounding_box, outline="black", fill="black")
+                draw.bitmap((x_offset, y_offset), qr_image, fill="white")
                 
-                # If new width exceeds screen width, scale to fit width instead
-                if new_width > self.width:
-                    new_width = self.width
-                    new_height = int(new_width / aspect_ratio)
-                
-                # Resize image maintaining aspect ratio
-                if (new_width, new_height) != (original_width, original_height):
-                    logo_image = logo_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                    logging.debug(f"Logo resized from {original_width}x{original_height} to {new_width}x{new_height}")
-                
-                # Center the image on screen
-                x_offset = (self.width - new_width) // 2
-                y_offset = (self.height - new_height) // 2
-                
-                with canvas(self.device) as draw:
-                    draw.rectangle(self.device.bounding_box, outline="black", fill="black")
-                    draw.bitmap((x_offset, y_offset), logo_image, fill="white")
-            else:
-                # Fallback if image has no height
-                self._show_fallback_logo()
-                
-        except FileNotFoundError:
-            logging.info("Logo file not found, using fallback")
-            self._show_fallback_logo()
+        except ImportError:
+            # Fallback if qrcode library is not available
+            self._show_fallback_logo_with_text("QR lib missing")
         except Exception as e:
-            logging.error(f"Logo error: {e}")
-            self._show_fallback_logo()
+            logging.error(f"QR code generation error: {e}")
+            self._show_fallback_logo_with_text("QR Error")
     
     def _is_safe_image_path(self, path):
         """Validate image file path for security"""
@@ -176,8 +199,16 @@ class DisplayManager:
         
         return True
     
-    def _show_fallback_logo(self):
-        """Show fallback logo when image loading fails"""
+    def _show_fallback_logo_with_text(self, message="Pi-hole"):
+        """Show fallback text when QR code generation fails"""
         with canvas(self.device) as draw:
             draw.rectangle(self.device.bounding_box, outline="black", fill="black")
-            draw.text((self.x+40, self.top+2), "π", font=self.fonts.get('logo'), fill="white")
+            # Center the text
+            text_width = len(message) * 6  # Approximate character width
+            x_pos = (self.width - text_width) // 2
+            draw.text((x_pos, self.top + 20), message, font=self.fonts.get('medium'), fill="white")
+            draw.text((self.x+40, self.top+40), "π", font=self.fonts.get('logo'), fill="white")
+
+    def _show_fallback_logo(self):
+        """Show fallback logo when image loading fails"""
+        self._show_fallback_logo_with_text("Pi-hole")
