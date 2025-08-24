@@ -8,25 +8,58 @@ class SystemInfo:
     @staticmethod
     def get_ip_address():
         try:
-            # Try multiple methods to get IP address
-            methods = [
-                "hostname -I | cut -d' ' -f1",
-                "ip route get 1.1.1.1 | head -1 | awk '{print $7}'",
-                "ip addr show | grep 'inet ' | grep -v '127.0.0.1' | head -1 | awk '{print $2}' | cut -d'/' -f1"
-            ]
+            # Method 1: Read from /proc/net/route (works in restricted environments)
+            try:
+                with open('/proc/net/route', 'r') as f:
+                    for line in f:
+                        fields = line.strip().split()
+                        if len(fields) >= 11 and fields[1] == '00000000':  # Default route
+                            # Get interface name
+                            interface = fields[0]
+                            # Read IP from interface
+                            cmd = f"cat /sys/class/net/{interface}/address 2>/dev/null || ip addr show {interface} | grep 'inet ' | head -1 | awk '{{print $2}}' | cut -d'/' -f1"
+                            result = subprocess.check_output(cmd, shell=True, timeout=3).decode('UTF-8').strip()
+                            if result and '.' in result:
+                                logging.debug(f"Got IP from interface {interface}: {result}")
+                                return result
+            except Exception as e:
+                logging.debug(f"Route method failed: {e}")
+
+            # Method 2: Use ip command (usually works in systemd)
+            try:
+                cmd = "ip route get 1.1.1.1 2>/dev/null | head -1 | awk '{print $7}' 2>/dev/null"
+                result = subprocess.check_output(cmd, shell=True, timeout=3).decode('UTF-8').strip()
+                if result and result != '' and '.' in result:
+                    logging.debug(f"Got IP using ip route: {result}")
+                    return result
+            except Exception as e:
+                logging.debug(f"IP route method failed: {e}")
             
-            for cmd in methods:
-                try:
-                    result = subprocess.check_output(cmd, shell=True, timeout=5).decode('UTF-8').strip()
-                    if result and result != '':
-                        logging.debug(f"Got IP address using '{cmd}': {result}")
-                        return result
-                except Exception as e:
-                    logging.debug(f"IP method '{cmd}' failed: {e}")
-                    continue
+            # Method 3: Read /proc/net/fib_trie (fallback)
+            try:
+                import socket
+                # Get local IP by connecting to a remote address
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                    s.connect(("1.1.1.1", 80))
+                    ip = s.getsockname()[0]
+                    if ip and ip != '127.0.0.1':
+                        logging.debug(f"Got IP using socket method: {ip}")
+                        return ip
+            except Exception as e:
+                logging.debug(f"Socket method failed: {e}")
+
+            # Method 4: Parse ip addr directly
+            try:
+                cmd = "ip addr show | grep 'inet ' | grep -v '127.0.0.1' | head -1 | awk '{print $2}' | cut -d'/' -f1"
+                result = subprocess.check_output(cmd, shell=True, timeout=3).decode('UTF-8').strip()
+                if result and result != '' and '.' in result:
+                    logging.debug(f"Got IP using ip addr: {result}")
+                    return result
+            except Exception as e:
+                logging.debug(f"IP addr method failed: {e}")
             
             logging.warning("All IP address methods failed")
-            return "No IP Found"
+            return "No Network"
         except Exception as e:
             logging.error(f"Error getting IP address: {e}")
             return "IP Error"
