@@ -8,7 +8,7 @@ Type=simple
 User={{SERVICE_USER}}
 Group={{SERVICE_USER}}
 WorkingDirectory={{WORKING_DIR}}
-ExecStart=/usr/bin/python3 main.py
+ExecStart=/usr/bin/python3 run.py
 Environment=PIHOLE_APP_PASSWORD={{PIHOLE_PASSWORD}}
 
 # Security settings

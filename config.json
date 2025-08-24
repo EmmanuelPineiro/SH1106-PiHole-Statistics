@@ -5,7 +5,7 @@
   },
   "qr_code": {
     "enabled": true,
-    "url": "",
+    "url": "https://192.168.10.209/admin",
     "box_size": 2,
     "border": 2,
     "error_correction": "M"
@@ -19,8 +19,8 @@
     "i2c_address": "0x3C"
   },
   "fonts": {
-    "mono_font_path": "./fonts/VCR_OSD_MONO_1.001.ttf",
-    "display_font_path": "./fonts/Raspi-Schrift.ttf",
+    "mono_font_path": "./assets/fonts/VCR_OSD_MONO_1.001.ttf",
+    "display_font_path": "./assets/fonts/Raspi-Schrift.ttf",
     "sizes": {
       "small": 11,
       "medium": 13,
@@ -54,9 +54,5 @@
       "duration": "qr_code_display_time", 
       "requires_pihole_data": false
     }
-  ],
-  "files": {
-    "logo_image": "./logo.png",
-    "log_file": "stats.log"
-  }
+  ]
 }

@@ -159,7 +159,7 @@ Edit `config.json` to match your setup:
 #### 7. Test the Installation
 
 ```bash
-python3 main.py
+python3 run.py
 ```
 
 If everything is configured correctly, you should see screens cycling through:
@@ -196,7 +196,7 @@ After=network.target
 Type=simple
 User=pi
 WorkingDirectory=/home/pi/stats
-ExecStart=/usr/bin/python3 main.py
+ExecStart=/usr/bin/python3 run.py
 Environment=PIHOLE_APP_PASSWORD=your_application_password_here
 Restart=always
 RestartSec=10

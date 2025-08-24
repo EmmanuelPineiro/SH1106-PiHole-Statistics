@@ -6,19 +6,30 @@ import logging
 import time
 from time import sleep
 
+#!/usr/bin/python3
+import os
+import sys
+import signal
+import logging
+import time
+from time import sleep
+
 # Set restrictive umask for file creation
 os.umask(0o077)
+
+# Initialize module-level logger
+logger = logging.getLogger(__name__)
 
 from luma.core.interface.serial import i2c 
 from luma.core.render import canvas
 from luma.oled.device import sh1106
 
 # Import our custom classes
-from config.config_manager import Config
-from fonts.font_manager import FontManager
-from pihole.pihole_api import PiholeAPI
-from display.display_manager import DisplayManager
-from utils.security import SecurityUtils
+from .config.config_manager import Config
+from .fonts.font_manager import FontManager
+from .pihole.pihole_api import PiholeAPI
+from .display.display_manager import DisplayManager
+from .utils.security import SecurityUtils
 
 def setup_logging(config):
     log_file = config.get('files.log_file', 'stats.log')
