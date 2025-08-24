@@ -37,6 +37,9 @@ def test_mode():
     """Test mode to validate the installation without running the full application."""
     print("🧪 Running Pi-hole Stats Display Test Mode...")
     
+    # Set a temporary password for testing
+    os.environ['PIHOLE_APP_PASSWORD'] = 'test-mode-password'
+    
     # Test 1: Basic imports
     print("\n1. Testing basic imports...")
     try:
@@ -116,6 +119,35 @@ def test_mode():
     except Exception as e:
         print(f"   ✗ File permission test failed: {e}")
         return 1
+    
+    # Test 7: Security configuration
+    print("\n7. Testing security configuration...")
+    try:
+        # Check if password file exists (for deployed installations)
+        password_file = os.path.join(current_dir, '.app_password')
+        if os.path.exists(password_file):
+            print("   ✓ Application password file found")
+            # Check permissions
+            stat_info = os.stat(password_file)
+            if oct(stat_info.st_mode)[-3:] == '600':
+                print("   ✓ Password file has correct permissions (600)")
+            else:
+                print(f"   ⚠️  Password file permissions: {oct(stat_info.st_mode)[-3:]} (should be 600)")
+        else:
+            print("   ⚠️  No password file found (expected for source installations)")
+        
+        # Check config file permissions
+        config_file = os.path.join(current_dir, 'config.json')
+        if os.path.exists(config_file):
+            stat_info = os.stat(config_file)
+            if oct(stat_info.st_mode)[-3:] == '600':
+                print("   ✓ Config file has secure permissions (600)")
+            else:
+                print(f"   ⚠️  Config file permissions: {oct(stat_info.st_mode)[-3:]} (consider using 600)")
+        
+    except Exception as e:
+        print(f"   ⚠️  Security test failed: {e}")
+        # Don't return error for security test failures in test mode
     
     print("\n🎉 All tests passed! The installation appears to be working correctly.")
     print("\nTo run the actual application, use:")

@@ -10,6 +10,7 @@ User={{SERVICE_USER}}
 Group={{SERVICE_GROUP}}
 WorkingDirectory={{WORKING_DIR}}
 Environment=PYTHONPATH={{WORKING_DIR}}/src
+Environment=PIHOLE_APP_PASSWORD={{PIHOLE_PASSWORD}}
 ExecStart={{PYTHON_PATH}} {{WORKING_DIR}}/run.py
 StandardOutput=journal
 StandardError=journal

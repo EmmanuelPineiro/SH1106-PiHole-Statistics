@@ -180,6 +180,31 @@ install_python_dependencies() {
 create_systemd_service() {
     log "Creating systemd service..."
     
+    # Check if Pi-hole app password is already configured
+    if [ ! -f "$INSTALL_DIR/.app_password" ]; then
+        warning "Pi-hole app password not configured yet"
+        info "You will need to:"
+        info "1. Go to Pi-hole admin interface > Settings > API"
+        info "2. Generate an API token/password"
+        info "3. Save it to: $INSTALL_DIR/.app_password"
+        info "4. Set permissions: chmod 600 $INSTALL_DIR/.app_password"
+        info "5. Restart the service: systemctl restart $SERVICE_NAME"
+        
+        # Create placeholder file
+        echo "REPLACE_WITH_PIHOLE_API_TOKEN" > "$INSTALL_DIR/.app_password"
+        chmod 600 "$INSTALL_DIR/.app_password"
+        chown "$USER:$USER" "$INSTALL_DIR/.app_password"
+        
+        APP_PASSWORD="REPLACE_WITH_PIHOLE_API_TOKEN"
+    else
+        APP_PASSWORD=$(cat "$INSTALL_DIR/.app_password")
+        if [ "$APP_PASSWORD" = "REPLACE_WITH_PIHOLE_API_TOKEN" ]; then
+            warning "Pi-hole app password still needs to be configured"
+        else
+            info "Using existing Pi-hole app password"
+        fi
+    fi
+    
     # Get the script directory
     SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
     TEMPLATE_FILE="$SCRIPT_DIR/pihole-stats.service.template"
@@ -199,6 +224,7 @@ create_systemd_service() {
     sed -i "s|{{SERVICE_NAME}}|$SERVICE_NAME|g" "$SERVICE_FILE"
     sed -i "s|{{WORKING_DIR}}|$INSTALL_DIR|g" "$SERVICE_FILE"
     sed -i "s|{{PYTHON_PATH}}|$INSTALL_DIR/venv/bin/python3|g" "$SERVICE_FILE"
+    sed -i "s|{{PIHOLE_PASSWORD}}|$APP_PASSWORD|g" "$SERVICE_FILE"
     
     # Reload systemd and enable service
     systemctl daemon-reload
@@ -215,10 +241,15 @@ configure_application() {
     # Update font paths in config to use absolute paths
     sed -i "s|\"./assets/|\"$INSTALL_DIR/assets/|g" "$CONFIG_FILE"
     
-    # Ensure proper ownership
+    # Set secure permissions on config file (owner read/write only)
+    chmod 600 "$CONFIG_FILE"
     chown "$USER:$USER" "$CONFIG_FILE"
     
-    log "Application configured"
+    # Set secure permissions on the entire installation directory
+    find "$INSTALL_DIR" -type f -name "*.py" -exec chmod 644 {} \;
+    find "$INSTALL_DIR" -type d -exec chmod 755 {} \;
+    
+    log "Application configured with secure permissions"
 }
 
 test_i2c_connection() {
@@ -311,9 +342,21 @@ show_next_steps() {
     echo -e "================================${NC}"
     echo
     echo -e "${BLUE}Next Steps:${NC}"
-    echo "1. Edit the configuration file: $INSTALL_DIR/config.json"
-    echo "2. Update Pi-hole URL and other settings as needed"
-    echo "3. Restart the service: sudo systemctl restart $SERVICE_NAME"
+    echo "1. Configure Pi-hole API password:"
+    echo "   a. Go to Pi-hole admin interface > Settings > Web Interface/API"
+    echo "   b. change toggle to expertd"
+    echo "   c. Click configure app password"
+    echo "   d. Run: echo 'YOUR_API_TOKEN' | sudo tee $INSTALL_DIR/.app_password"
+    echo "   e. Run: sudo chmod 600 $INSTALL_DIR/.app_password"
+    echo "   f. Run: sudo chown $USER:$USER $INSTALL_DIR/.app_password"
+    echo "2. Edit the configuration file: $INSTALL_DIR/config.json"
+    echo "3. Update Pi-hole URL and other settings as needed"
+    echo "4. Restart the service: sudo systemctl restart $SERVICE_NAME"
+    echo
+    echo -e "${BLUE}Security Information:${NC}"
+    echo "• Pi-hole API password should be stored in: $INSTALL_DIR/.app_password"
+    echo "• Config file permissions set to 600 (owner read/write only)"
+    echo "• Service runs as non-root user: $USER"
     echo
     echo -e "${BLUE}Useful Commands:${NC}"
     echo "• View logs: sudo journalctl -u $SERVICE_NAME -f"
