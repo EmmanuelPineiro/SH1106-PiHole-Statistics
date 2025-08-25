@@ -27,8 +27,22 @@ def setup_logging(config):
     # For systemd services, log to stdout/stderr instead of file
     # This allows logs to be captured by journalctl
     try:
+        # Get log level from config (default to INFO for cleaner logs)
+        log_level_str = config.get('logging.level', 'INFO').upper()
+        
+        # Map string to logging level
+        level_map = {
+            'DEBUG': logging.DEBUG,
+            'INFO': logging.INFO,
+            'WARNING': logging.WARNING,
+            'ERROR': logging.ERROR,
+            'CRITICAL': logging.CRITICAL
+        }
+        
+        log_level = level_map.get(log_level_str, logging.INFO)
+        
         logging.basicConfig(
-            level=logging.DEBUG,
+            level=log_level,
             format='[%(asctime)s][%(name)s][%(levelname)s] - %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S',
             handlers=[
@@ -36,7 +50,7 @@ def setup_logging(config):
             ]
         )
         
-        # Silence noisy third-party loggers
+        # Silence noisy third-party loggers (always keep these at WARNING or higher)
         logging.getLogger('PIL').setLevel(logging.WARNING)
         logging.getLogger('PIL.PngImagePlugin').setLevel(logging.WARNING)
         logging.getLogger('urllib3').setLevel(logging.WARNING)
@@ -56,6 +70,7 @@ def setup_logging(config):
             if os.path.exists(log_file):
                 os.chmod(log_file, 0o600)
         
+        logging.info(f"Logging initialized at {log_level_str} level")
         return True
     except Exception as e:
         print(f"Failed to setup logging: {e}")

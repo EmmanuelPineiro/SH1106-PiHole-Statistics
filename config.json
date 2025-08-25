@@ -3,6 +3,9 @@
     "base_url": "https://localhost/api/",
     "timeout": 10
   },
+  "logging": {
+    "level": "INFO"
+  },
   "qr_code": {
     "enabled": true,
     "url": "https://192.168.10.209/admin",
