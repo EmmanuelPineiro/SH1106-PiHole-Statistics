@@ -28,11 +28,11 @@ A Python application that displays Pi-hole statistics and system information on 
 
 You can install this application using the automated setup script (recommended) or manually.
 
-### Prerequisite Configure Pi-hole Application Password
+### Prerequisite: Configure Pi-hole Application Password
 
-Pi-hole application passwords provide secure API access without using the main admin password. You can create them via the web interface or command line.
+Before installation, you need to set up your Pi-hole application password as an environment variable.
 
-#### Web Interface
+#### Get Your Pi-hole Application Password
 
 1. Open your Pi-hole admin interface
 1. Go to **Settings** → **Web Interface/API**
@@ -41,9 +41,9 @@ Pi-hole application passwords provide secure API access without using the main a
 1. Copy the new app password
 1. Click **Enable New App Password**
 
-#### Set Environment Variable:
+#### Set Environment Variable
 
-Once you have the application password (from either method):
+Add the password to your environment:
 
 ```bash
 export PIHOLE_APP_PASSWORD="your_application_password_here"
@@ -51,6 +51,9 @@ export PIHOLE_APP_PASSWORD="your_application_password_here"
 # To make it permanent, add to ~/.bashrc:
 echo 'export PIHOLE_APP_PASSWORD="your_application_password_here"' >> ~/.bashrc
 source ~/.bashrc
+
+# Verify it's set
+echo $PIHOLE_APP_PASSWORD
 ```
 
 ### Automated Setup (Recommended)
@@ -61,17 +64,27 @@ The project includes a comprehensive setup script that handles installation with
 cd /home/pi
 git clone https://github.com/EmmanuelPineiro/SH1106-PiHole-Statistics.git stats
 cd stats
-chmod +x setup.sh
-./setup.sh
+
+# Run setup (this installs the service)
+chmod +x deployment/setup.sh
+sudo deployment/setup.sh
+
+# Fix the service password configuration
+chmod +x deployment/configure-password.sh
+./deployment/configure-password.sh
 ```
 
 The setup script will:
 - Create a dedicated system user for security
-- Install system dependencies
+- Install system dependencies  
 - Set up Python environment
 - Configure proper file permissions
 - Create systemd service
-- Validate the installation
+
+The configure-password script will:
+- Transfer your password from your environment to the systemd service
+- Start the service
+- Verify it's working
 
 
 ### Manual Setup
@@ -168,59 +181,23 @@ If everything is configured correctly, you should see screens cycling through:
 3. **Hardware Info**: CPU, RAM, disk usage, and temperature  
 4. **Logo**: Custom image or π symbol
 
-**Note:** If you used the automated setup script, the application will already be running as a service. Check its status with:
+**Note:** If you used the automated setup script, the application will already be running as a service at `/opt/pihole-stats/`. Check its status with:
 ```bash
 sudo systemctl status pihole-stats.service
+```
+
+For manual installations, the application can be run directly:
+```bash
+python3 run.py
 ```
 
 ## Running as a Service
 
-The automated setup script creates and enables a systemd service automatically. If you installed manually, you can set up the service to run automatically on boot:
-
-**Note:** If you used the automated setup, skip to "Managing the Service" below.
-
-### 1. Create Service File
-
-```bash
-sudo nano /etc/systemd/system/pihole-stats.service
-```
-
-### 2. Add Service Configuration
-
-```ini
-[Unit]
-Description=Pi-hole Stats Display
-After=network.target
-
-[Service]
-Type=simple
-User=pi
-WorkingDirectory=/home/pi/stats
-ExecStart=/usr/bin/python3 run.py
-Environment=PIHOLE_APP_PASSWORD=your_application_password_here
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### 3. Enable and Start Service
-
-```bash
-sudo systemctl enable pihole-stats.service
-sudo systemctl start pihole-stats.service
-
-# Check status
-sudo systemctl status pihole-stats.service
-
-# View logs
-sudo journalctl -u pihole-stats.service -f
-```
+The automated setup script creates and enables a systemd service automatically. The service runs the application continuously in the background.
 
 ### Managing the Service
 
-Whether you used automated or manual setup, you can manage the service with these commands:
+You can manage the service with these commands:
 
 ```bash
 # Check service status
@@ -240,6 +217,9 @@ sudo journalctl -u pihole-stats.service -n 50
 
 # Follow logs in real time
 sudo journalctl -u pihole-stats.service -f
+
+# Check application logs (file-based logging)
+sudo tail -f /opt/pihole-stats/stats.log
 ```
 
 ## Configuration Options
@@ -308,11 +288,25 @@ sudo usermod -a -G i2c pi
 # Verify environment variable is set
 echo $PIHOLE_APP_PASSWORD
 
-# Check Pi-hole is accessible
-curl -k "https://your-pihole-ip/api/"
+# Re-run the password configuration script
+cd /path/to/SH1106-PiHole-Statistics/deployment
+./configure-password.sh
 
 # Check for authentication lockout in logs
-tail -f stats.log | grep -i auth
+sudo tail -f /opt/pihole-stats/stats.log | grep -i auth
+```
+
+**Service showing "Auth Failed retrying...":**
+This usually means the password isn't reaching the service properly. Run:
+```bash
+cd /path/to/SH1106-PiHole-Statistics/deployment
+./configure-password.sh
+```
+
+**IP address not showing:**
+The system now uses multiple methods to detect IP, including a socket-based method that works in systemd restricted environments. Check logs for IP detection details:
+```bash
+sudo journalctl -u pihole-stats.service | grep -i ip
 ```
 
 **Import errors:**
@@ -323,13 +317,21 @@ pip3 install luma.oled pillow requests gpiozero
 
 **Permission errors:**
 ```bash
-# Add user to gpio group
-sudo usermod -a -G gpio pi
+# Add user to required groups
+sudo usermod -a -G gpio,i2c pi
 ```
 
 ### Log Files
 
-Check the application logs:
+The application uses both systemd journal logging and file-based logging:
+
 ```bash
-tail -f stats.log
+# View systemd service logs
+sudo journalctl -u pihole-stats.service -f
+
+# View application logs (more detailed)
+sudo tail -f /opt/pihole-stats/stats.log
+
+# Check for specific issues
+sudo grep -i "auth\|error\|ip" /opt/pihole-stats/stats.log
 ```

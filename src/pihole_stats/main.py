@@ -36,6 +36,12 @@ def setup_logging(config):
             ]
         )
         
+        # Silence noisy third-party loggers
+        logging.getLogger('PIL').setLevel(logging.WARNING)
+        logging.getLogger('PIL.PngImagePlugin').setLevel(logging.WARNING)
+        logging.getLogger('urllib3').setLevel(logging.WARNING)
+        logging.getLogger('requests').setLevel(logging.WARNING)
+        
         # Also add file logging if specified in config (optional)
         log_file = config.get('files.log_file')
         if log_file and SecurityUtils.is_safe_path(log_file):
