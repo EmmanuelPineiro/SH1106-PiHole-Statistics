@@ -193,8 +193,11 @@ python3 run.py
 
 ## Configuration Options
 
+### QR code
+- `qr_code.url`: URL the QR code screen will point to
+
 ### Log level
-- `level`: Log level to use (default: `INFO`)
+- `logging.level`: Log level to use (default: `INFO`)
 
 ### Display Settings
 
