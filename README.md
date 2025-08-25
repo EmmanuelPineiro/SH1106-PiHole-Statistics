@@ -191,6 +191,40 @@ For manual installations, the application can be run directly:
 python3 run.py
 ```
 
+## Configuration Options
+
+### Log level
+- `level`: Log level to use (default: `INFO`)
+
+### Display Settings
+
+- `screen_display_time`: Seconds to show each main screen (default: 10)
+- `logo_display_time`: Seconds to show logo screen (default: 5)  
+- `width`, `height`: Display resolution (default: 128x64)
+- `i2c_port`: I2C port number (default: 1)
+- `i2c_address`: Display I2C address (default: 0x3C)
+
+### Font Settings
+
+- `mono_font_path`: Path to monospace font file
+- `display_font_path`: Path to display/logo font file
+- `sizes`: Font sizes for different text elements
+
+### Screen Configuration
+
+The `screens` array defines which screens to show and in what order:
+
+```json
+"screens": [
+  {
+    "name": "ads_blocked",
+    "function": "show_ads_blocked_screen", 
+    "duration": "screen_display_time",
+    "requires_pihole_data": true
+  }
+]
+```
+
 ## Running as a Service
 
 The automated setup script creates and enables a systemd service automatically. The service runs the application continuously in the background.
@@ -222,50 +256,11 @@ sudo journalctl -u pihole-stats.service -f
 sudo tail -f /opt/pihole-stats/stats.log
 ```
 
-## Configuration Options
-
-### Display Settings
-
-- `screen_display_time`: Seconds to show each main screen (default: 10)
-- `logo_display_time`: Seconds to show logo screen (default: 5)  
-- `width`, `height`: Display resolution (default: 128x64)
-- `i2c_port`: I2C port number (default: 1)
-- `i2c_address`: Display I2C address (default: 0x3C)
-
-### Font Settings
-
-- `mono_font_path`: Path to monospace font file
-- `display_font_path`: Path to display/logo font file
-- `sizes`: Font sizes for different text elements
-
-### Screen Configuration
-
-The `screens` array defines which screens to show and in what order:
-
-```json
-"screens": [
-  {
-    "name": "ads_blocked",
-    "function": "show_ads_blocked_screen", 
-    "duration": "screen_display_time",
-    "requires_pihole_data": true
-  }
-]
-```
-
-## Customization
-
-### Adding Custom Screens
+## Adding Custom Screens
 
 1. Add a new method to `DisplayManager` class in `display/display_manager.py`
 2. Add screen configuration to `config.json`
 3. Restart the application
-
-### Custom Logo
-
-1. Create a 128x64 pixel PNG image (black and white works best)
-2. Save as `logo.png` in the project directory
-3. Or change `files.logo_image` path in config.json
 
 ## Troubleshooting
 
