@@ -1,0 +1,61 @@
+{
+  "pihole": {
+    "base_url": "https://localhost/api/",
+    "timeout": 10
+  },
+  "logging": {
+    "level": "INFO"
+  },
+  "qr_code": {
+    "enabled": true,
+    "url": "https://192.168.10.209/admin",
+    "box_size": 2,
+    "border": 2,
+    "error_correction": "M"
+  },
+  "display": {
+    "screen_display_time": 10,
+    "qr_code_display_time": 5,
+    "width": 128,
+    "height": 64,
+    "i2c_port": 1,
+    "i2c_address": "0x3C"
+  },
+  "fonts": {
+    "mono_font_path": "./assets/fonts/VCR_OSD_MONO_1.001.ttf",
+    "display_font_path": "./assets/fonts/Raspi-Schrift.ttf",
+    "sizes": {
+      "small": 11,
+      "medium": 13,
+      "normal": 15,
+      "large": 40,
+      "logo": 60
+    }
+  },
+  "screens": [
+    {
+      "name": "ads_blocked",
+      "function": "show_ads_blocked_screen",
+      "duration": "screen_display_time",
+      "requires_pihole_data": true
+    },
+    {
+      "name": "network_stats", 
+      "function": "show_network_stats_screen",
+      "duration": "screen_display_time",
+      "requires_pihole_data": true
+    },
+    {
+      "name": "hardware",
+      "function": "show_hardware_screen", 
+      "duration": "screen_display_time",
+      "requires_pihole_data": false
+    },
+    {
+      "name": "qr_code",
+      "function": "show_qr_code_screen",
+      "duration": "qr_code_display_time", 
+      "requires_pihole_data": false
+    }
+  ]
+}

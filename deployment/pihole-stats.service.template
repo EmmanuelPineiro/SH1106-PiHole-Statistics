@@ -1,0 +1,45 @@
+[Unit]
+Description=Pi-hole OLED Statistics Display
+Documentation=https://github.com/EmmanuelPineiro/SH1106-PiHole-Statistics
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{SERVICE_USER}}
+Group={{SERVICE_GROUP}}
+WorkingDirectory={{WORKING_DIR}}
+Environment=PYTHONPATH={{WORKING_DIR}}/src
+Environment=PIHOLE_APP_PASSWORD={{PIHOLE_PASSWORD}}
+ExecStart={{PYTHON_PATH}} {{WORKING_DIR}}/run.py
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier={{SERVICE_NAME}}
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths={{WORKING_DIR}} /var/log
+CapabilityBoundingSet=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RemoveIPC=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+# Restart settings
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+[Install]
+WantedBy=multi-user.target
